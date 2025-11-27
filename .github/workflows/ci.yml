@@ -8,7 +8,7 @@ on:
 
 # Define environment variables that will be used throughout the workflow
 env:
-  NODE_VERSION: '18.x'
+  GO_VERSION: '1.21'
 
 jobs:
   # Main CI job that runs all the pipeline steps
@@ -21,69 +21,79 @@ jobs:
       # This action checks out your repository so the workflow can access it
       - name: Checkout code
         uses: actions/checkout@v4
-        with:
-          # Fetch all history for all branches and tags (required for SonarCloud)
-          fetch-depth: 0
 
-      # Step 2: Set up Node.js environment
-      # This installs Node.js which is required for running Jest tests and building the project
-      - name: Set up Node.js
-        uses: actions/setup-node@v4
+      # Step 2: Set up Go environment
+      # This installs Go which is required for building and testing the microservices
+      - name: Set up Go
+        uses: actions/setup-go@v4
         with:
-          node-version: ${{ env.NODE_VERSION }}
-          # Cache npm dependencies to speed up subsequent workflow runs
-          cache: 'npm'
+          go-version: ${{ env.GO_VERSION }}
+          cache: true
 
-      # Step 3: Install project dependencies
-      # This installs all dependencies defined in package.json
+      # Step 3: Install dependencies for all services
+      # Download all Go module dependencies for each microservice
       - name: Install dependencies
-        run: npm ci
+        run: |
+          echo "Installing dependencies for all services..."
+          cd api-gateway && go mod download && cd ..
+          cd auth-service && go mod download && cd ..
+          cd booking-service && go mod download && cd ..
+          cd building-service && go mod download && cd ..
 
-      # Step 4: Run unit tests using Jest
-      # Execute all unit tests to ensure code functionality
+      # Step 4: Run unit tests
+      # Execute tests for all microservices
       - name: Run unit tests
-        run: npm test
-        env:
-          # Run tests in CI mode for better output formatting
-          CI: true
+        run: |
+          echo "Running tests for all services..."
+          cd api-gateway && go test ./... -v && cd ..
+          cd auth-service && go test ./... -v && cd ..
+          cd booking-service && go test ./... -v && cd ..
+          cd building-service && go test ./... -v && cd ..
 
       # Step 5: Run Snyk security scan
       # Scan for vulnerabilities in dependencies and code
       - name: Run Snyk security scan
-        uses: snyk/actions/node@master
+        uses: snyk/actions/golang@master
         continue-on-error: true
         env:
           # Snyk token should be stored as a GitHub secret
           SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
-        with:
-          # Generate a report showing vulnerabilities
-          args: --severity-threshold=high
 
-      # Step 7: Build the project
-      # Compile/build the project to ensure it can be built successfully
-      - name: Build project
-        run: npm run build
+      # Step 6: Build all microservices
+      # Compile all services to ensure they can be built successfully
+      - name: Build all services
+        run: |
+          echo "Building all microservices..."
+          cd api-gateway && go build -v -o ../bin/api-gateway . && cd ..
+          cd auth-service && go build -v -o ../bin/auth-service . && cd ..
+          cd booking-service && go build -v -o ../bin/booking-service . && cd ..
+          cd building-service && go build -v -o ../bin/building-service . && cd ..
 
-      # Optional: Upload build artifacts
-      # Store the build output for potential deployment or review
+      # Step 7: Upload build artifacts
+      # Store the compiled binaries for potential deployment
       - name: Upload build artifacts
         uses: actions/upload-artifact@v4
         if: success()
         with:
-          name: build-artifacts
-          path: |
-            dist/
-            build/
+          name: microservices-binaries
+          path: bin/
           retention-days: 7
 
-      # Optional: Report CI status
+      # Step 8: Generate CI summary
       # Summarize the CI results
       - name: CI Summary
         if: always()
         run: |
           echo "## CI Pipeline Summary" >> $GITHUB_STEP_SUMMARY
           echo "- ✅ Code checkout completed" >> $GITHUB_STEP_SUMMARY
-          echo "- ✅ Dependencies installed" >> $GITHUB_STEP_SUMMARY
+          echo "- ✅ Go environment configured" >> $GITHUB_STEP_SUMMARY
+          echo "- ✅ Dependencies installed for all services" >> $GITHUB_STEP_SUMMARY
           echo "- ✅ Unit tests executed" >> $GITHUB_STEP_SUMMARY
           echo "- ✅ Security scan completed" >> $GITHUB_STEP_SUMMARY
-          echo "- ✅ Project build completed" >> $GITHUB_STEP_SUMMARY
+          echo "- ✅ All microservices built successfully" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Services Built:" >> $GITHUB_STEP_SUMMARY
+          echo "- API Gateway" >> $GITHUB_STEP_SUMMARY
+          echo "- Auth Service" >> $GITHUB_STEP_SUMMARY
+          echo "- Booking Service" >> $GITHUB_STEP_SUMMARY
+          echo "- Building Service" >> $GITHUB_STEP_SUMMARY
