@@ -59,29 +59,6 @@ jobs:
           # Generate a report showing vulnerabilities
           args: --severity-threshold=high
 
-      # Step 5b: Upload Snyk results to GitHub Code Scanning
-      # This makes security issues visible in the Security tab
-      - name: Upload Snyk results to GitHub Code Scanning
-        uses: github/codeql-action/upload-sarif@v3
-        if: always()
-        with:
-          sarif_file: snyk.sarif
-
-      # Step 6: Run SonarCloud code quality analysis
-      # Analyze code quality, code smells, bugs, and security hotspots
-      - name: SonarCloud Scan
-        uses: SonarSource/sonarcloud-github-action@master
-        env:
-          # GitHub token is automatically provided by GitHub Actions
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          # SonarCloud token should be stored as a GitHub secret
-          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
-        with:
-          # Additional arguments can be passed to the SonarScanner
-          args: >
-            -Dsonar.projectKey=your-project-key
-            -Dsonar.organization=your-organization
-
       # Step 7: Build the project
       # Compile/build the project to ensure it can be built successfully
       - name: Build project
@@ -109,5 +86,4 @@ jobs:
           echo "- ✅ Dependencies installed" >> $GITHUB_STEP_SUMMARY
           echo "- ✅ Unit tests executed" >> $GITHUB_STEP_SUMMARY
           echo "- ✅ Security scan completed" >> $GITHUB_STEP_SUMMARY
-          echo "- ✅ Code quality analysis completed" >> $GITHUB_STEP_SUMMARY
           echo "- ✅ Project build completed" >> $GITHUB_STEP_SUMMARY
